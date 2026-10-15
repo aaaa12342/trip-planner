@@ -3,56 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="免费、无需注册的旅游攻略生成器：输入起点和终点，一键生成出行方式、游玩方式、游玩时长、目的地天气、穿搭推荐、携带物品、旅游路线、景点介绍、美食推荐和旅行路线图。">
+  <meta name="description" content="免费、无需注册的旅行规划工作台：先选择目的地和景点，再生成逐站交通、抵达站点、地图、天气与住宿建议，支持调整路线和本机保存。">
   <title>旅行攻略生成器 · Trip Planner</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🧭%3C/text%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <a class="skip-link" href="#plannerForm">跳到行程规划</a>
   <svg class="icon-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><symbol id="icon-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m16 8-3 5-5 3 3-5 5-3Z"/></symbol><symbol id="icon-route" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 6h8a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8"/></symbol><symbol id="icon-cloud" viewBox="0 0 24 24"><path d="M7 18a5 5 0 0 1-1-10 6 6 0 0 1 11 1 4.5 4.5 0 0 1 0 9H7Z"/></symbol><symbol id="icon-wardrobe" viewBox="0 0 24 24"><path d="m8 3 4 2 4-2 5 5-4 3v10H7V11L3 8l5-5Z"/></symbol><symbol id="icon-pack" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="15" rx="3"/><path d="M9 6V4a3 3 0 0 1 6 0v2M6 12h12M10 16h4"/></symbol><symbol id="icon-bed" viewBox="0 0 24 24"><path d="M3 20V9h18v11M3 16h18M5 9V4h14v5M7 6h3M14 6h3"/></symbol><symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 11h18M8 15h2M14 15h2"/></symbol><symbol id="icon-landmark" viewBox="0 0 24 24"><path d="m3 8 9-5 9 5H3ZM5 8v10M10 8v10M14 8v10M19 8v10M3 21h18M3 18h18"/></symbol><symbol id="icon-fork" viewBox="0 0 24 24"><path d="M5 3v6a3 3 0 0 0 6 0V3M8 3v18M19 3c-4 3-4 9 0 10v8M19 3v10"/></symbol><symbol id="icon-map" viewBox="0 0 24 24"><path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2V5ZM9 3v16M15 5v16"/></symbol><symbol id="icon-save" viewBox="0 0 24 24"><path d="M5 3h12l4 4v14H3V3h2ZM7 3v6h9V3M7 21v-8h10v8"/></symbol><symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol><symbol id="icon-swap" viewBox="0 0 24 24"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></symbol><symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol><symbol id="icon-pin" viewBox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></symbol><symbol id="icon-edit" viewBox="0 0 24 24"><path d="m4 16 12-12 4 4-12 12H4v-4ZM13 7l4 4"/></symbol><symbol id="icon-leaf" viewBox="0 0 24 24"><path d="M19 3c1 7 0 12-5 15-4 2-8 0-8-4 0-5 5-8 13-11ZM4 21l11-11"/></symbol></defs></svg>
-  <header class="hero">
-    <div class="container">
-      <div class="brand-row"><a class="brand" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-compass"></use></svg><span>旅行攻略生成器<small>TRIP PLANNER</small></span></a><a class="header-link" href="#savedPanel">我的旅行手账 <svg class="icon" aria-hidden="true"><use href="#icon-arrow"></use></svg></a></div>
-      <div class="hero-grid">
-        <div class="hero-copy"><span class="eyebrow">让每一次出发，都从容一点</span><h1>下一站，<br>有计划地去喜欢。</h1><p class="subtitle">从出发到返程，把路线、天气和旅行灵感<br class="desktop-break">整理成一份属于你的攻略。</p><div class="hero-tags"><span><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg>无需注册</span><span><svg class="icon" aria-hidden="true"><use href="#icon-edit"></use></svg>自由调整</span><span><svg class="icon" aria-hidden="true"><use href="#icon-save"></use></svg>本机保存</span></div></div>
-        <div class="hero-art" aria-hidden="true">
-          <svg viewBox="0 0 460 270" xmlns="http://www.w3.org/2000/svg" class="journey-art">
-            <path d="M45 185C2 134 55 31 142 49s109-41 194-8 117 142 46 181-107-8-174 17S76 223 45 185Z" fill="#e4ebdf"/>
-            <path d="M61 185c60-20 111 29 162 0S292 79 394 96" fill="none" stroke="#c5d4c3" stroke-width="29"/>
-            <path d="M63 185c57-18 113 28 165-1s64-105 166-89" fill="none" stroke="#f9f7ee" stroke-width="14"/>
-            <path d="m64 187 34-37c33-44 99-7 130-16s46-54 81-57 59 5 89 20" fill="none" stroke="#276349" stroke-width="2.5" stroke-dasharray="5 7"/>
-            <path d="m116 102 28-50 29 50Z" fill="#9ab299"/><path d="m146 111 31-61 35 61Z" fill="#bbcab0"/>
-            <path d="m145 50 8 14-16-1Z" fill="#fffdf8"/>
-            <g fill="#739d81"><path d="m311 195 13-32 13 32Z"/><path d="m340 212 18-44 18 44Z"/></g>
-            <g stroke="#45694d" stroke-width="3"><path d="M324 194v14M358 208v14"/></g>
-            <circle cx="374" cy="49" r="18" fill="#e9bd79"/>
-            <g fill="#fffdf8" stroke="#276349" stroke-width="2"><circle cx="64" cy="187" r="7"/><circle cx="228" cy="134" r="7"/><circle cx="397" cy="97" r="7"/></g>
-            <g fill="#254c3b" font-family="sans-serif" font-size="12"><text x="44" y="217">出发</text><text x="215" y="162">探索</text><text x="383" y="126">抵达</text></g>
-          </svg>
-          <div class="journey-caption"><span>YOUR NEXT CHAPTER</span><strong>路线有序，旅途随心。</strong></div>
-        </div>
-      </div>
-    </div>
-  </header>
+  <header class="app-header"><div class="container brand-row">
+    <a class="brand" href="#plannerForm"><svg class="icon" aria-hidden="true"><use href="#icon-compass"></use></svg><span>旅行攻略<span class="brand-suffix">行程工作台</span></span></a>
+    <a class="header-link" href="#savedPanel"><svg class="icon" aria-hidden="true"><use href="#icon-save"></use></svg>本机存档</a>
+  </div></header>
 
   <datalist id="destinationNames"></datalist>
   <dialog id="locationDialog" aria-labelledby="locationTitle"><h2 id="locationTitle">请选择具体地点</h2><div id="locationChoices"></div><button type="button" class="btn-ghost" id="cancelLocationBtn">取消选择</button></dialog>
 
   <main class="container">
+    <section class="workspace-intro"><div><h1>规划下一站</h1><p>把想去的地方，排成好走的路线。</p></div>
+      <nav class="workflow-steps" aria-label="规划步骤"><a href="#pickerTitle" data-step="1" aria-current="step"><span>1</span>选景点</a><a href="#tripSettings" data-step="2"><span>2</span>出行设置</a><a href="#results" data-step="3" aria-disabled="true" tabindex="-1"><span>3</span>看行程</a></nav>
+    </section>
     <div class="planning-layout">
     <!-- ============ 输入面板 ============ -->
     <section class="panel input-panel" aria-label="行程输入">
-<div class="panel-heading"><div><span class="section-kicker">01 / PLAN YOUR TRIP</span><h2>从这里开始出发</h2><p>填写目的地，先挑景点，再安排每一天。</p></div><svg class="icon" aria-hidden="true"><use href="#icon-route"></use></svg></div>
+      <div class="panel-heading"><div><h2>目的地与景点</h2><p>先选想去的地方，再安排出行方式。</p></div><svg class="icon" aria-hidden="true"><use href="#icon-route"></use></svg></div>
       <form id="plannerForm" autocomplete="off" tabindex="-1">
         <div class="row place-row">
           <div class="field">
-            <label for="startInput">起点</label>
+            <label for="startInput">出发地</label>
             <input type="text" id="startInput" placeholder="例如：北京" list="destinationNames" required>
           </div>
           <button type="button" class="swap-icon" aria-label="交换起点与终点" title="交换起点终点" id="swapBtn"><svg class="icon" aria-hidden="true"><use href="#icon-swap"></use></svg></button>
           <div class="field">
-            <label for="destInput">想去哪里</label>
+            <label for="destInput">目的地</label>
             <input type="text" id="destInput" placeholder="例如：杭州" list="destinationNames" required>
           </div>
           <div class="field date-field">
@@ -62,17 +45,17 @@
         </div>
 
         <section class="attraction-picker" aria-labelledby="pickerTitle">
-          <div class="picker-heading"><div><span class="section-kicker">02 / CHOOSE YOUR STOPS</span><h3 id="pickerTitle">先选喜欢的景点</h3></div><button type="button" class="btn-ghost" id="recommendBtn">查看推荐景点</button></div>
+          <div class="picker-heading"><div><h3 id="pickerTitle" tabindex="-1">选择想去的景点</h3></div><button type="button" class="btn-ghost" id="recommendBtn">查看推荐景点</button></div>
           <p id="pickerStatus" role="status">选择目的地后，这里会展示推荐景点。勾选想去的地方，再生成路线。</p>
           <div class="picker-tools" id="pickerTools" hidden><span id="pickerCount"></span><button type="button" id="selectAllStops" class="btn-ghost">全选</button><button type="button" id="clearStops" class="btn-ghost">清空</button></div>
           <div id="recommendedWrap" class="recommended-grid"></div>
         </section>
-        <div class="switch-intro"><h3>再安排旅行方式</h3><p>根据已选景点设置天数、游玩方式和节奏。</p></div>
+        <details class="travel-settings" id="tripSettings" open><summary><strong>出行设置</strong><span id="settingsSummary">三天两夜 / 公共交通</span></summary><div class="settings-body">
         <!-- 可切换模块 1：出行方式 -->
         <div class="switch-group">
           <div class="switch-head">
             <span class="switch-label">出行方式</span>
-            <span class="rec-badge" id="travelModeRec" hidden>⭐ 推荐</span>
+            <span class="rec-badge" id="travelModeRec" hidden>推荐</span>
           </div>
           <div class="segments" id="travelModeGroup" role="radiogroup" aria-label="出行方式">
             <label class="seg"><input type="radio" name="travelMode" value="自驾" checked><span>自驾</span></label>
@@ -89,7 +72,7 @@
         <div class="switch-group">
           <div class="switch-head">
             <span class="switch-label">游玩方式</span>
-            <span class="rec-badge" id="playModeRec" hidden>⭐ 推荐</span>
+            <span class="rec-badge" id="playModeRec" hidden>推荐</span>
           </div>
           <div class="segments" id="playModeGroup" role="radiogroup" aria-label="游玩方式">
             <label class="seg"><input type="radio" name="playMode" value="公共交通" checked><span>公共交通</span></label>
@@ -104,7 +87,7 @@
         <div class="switch-group">
           <div class="switch-head">
             <span class="switch-label">游玩时长</span>
-            <span class="rec-badge" id="durationRec" hidden>⭐ 推荐</span>
+            <span class="rec-badge" id="durationRec" hidden>推荐</span>
           </div>
           <div class="segments" id="durationGroup" role="radiogroup" aria-label="游玩时长">
             <label class="seg"><input type="radio" name="duration" value="一天一夜"><span>一天一夜</span></label>
@@ -116,10 +99,11 @@
           </div>
         </div>
 
-        <div class="row preference-row">
+        <details class="advanced-settings" id="advancedSettings"><summary>节奏与住宿偏好<span id="preferencesSummary">舒适 / 景点便利</span></summary>        <div class="row preference-row">
           <div class="field"><label for="paceInput">游玩节奏</label><select id="paceInput"><option>舒适</option><option>轻松</option><option>紧凑</option></select></div>
           <div class="field"><label for="stayPreferenceInput">住宿偏好</label><select id="stayPreferenceInput"><option>景点便利</option><option>交通优先</option><option>安静休闲</option></select></div>
         </div>
+        </details></div></details>
         <div class="actions">
           <button type="submit" id="generateBtn" class="btn-primary">按所选景点生成路线 <svg class="icon" aria-hidden="true"><use href="#icon-arrow"></use></svg></button>
           <button type="button" id="resetBtn" class="btn-ghost">重置</button>
@@ -128,13 +112,19 @@
       <div class="quick-routes"><span>还没灵感？试试</span><button type="button" data-start="北京" data-dest="杭州">北京 → 杭州</button><button type="button" data-start="上海" data-dest="苏州">上海 → 苏州</button><button type="button" data-start="广州" data-dest="成都">广州 → 成都</button></div>
     </section>
 
-    <aside class="planner-aside">
+    <aside class="planner-aside" aria-label="当前行程与存档">
+      <section class="context-panel"><div class="context-heading"><svg class="icon" aria-hidden="true"><use href="#icon-pin"></use></svg><h2>你的行程</h2></div>
+        <p id="draftRoute" class="draft-route">先选一个目的地</p>
+        <dl class="draft-facts"><div><dt>已选景点</dt><dd id="draftStops">0 个</dd></div><div><dt>游玩时长</dt><dd id="draftDuration">三天两夜</dd></div><div><dt>出行方式</dt><dd id="draftTravel">自驾</dd></div><div><dt>当地交通</dt><dd id="draftPlay">公共交通</dd></div></dl>
+        <p class="context-note">先选景点，再生成每日路线。抵达站点和交通建议会一起安排。</p><a href="#tripSettings" class="context-link">调整出行设置</a>
+      </section>
+      <details class="saved-disclosure" id="savedDetails"><summary><svg class="icon" aria-hidden="true"><use href="#icon-save"></use></svg>本机存档<span>保存与导入</span></summary>
     <section id="savedPanel" class="panel saved-panel" aria-label="本机保存的攻略">
 <div class="aside-heading"><svg class="icon" aria-hidden="true"><use href="#icon-save"></use></svg><h2>我的旅行手账</h2></div><p class="map-hint">最多保留最近 10 份。恢复时显示存档天气；出发前请重新查询。</p>
       <div id="savedWrap"></div><label class="import-control">导入攻略 JSON<input type="file" id="importInput" accept=".json,application/json"></label>
     </section>
-
-    <div class="aside-note"><span class="section-kicker">MAKE IT YOURS</span><h3>好行程，<br>也留一点自由。</h3><p>生成后可以调整景点、安排日期，<br>把喜欢的地方放进每一天。</p><div class="aside-note-rule"></div><span>先有计划，再慢慢出发。</span></div>
+      </details>
+      <p class="privacy-note">无需注册。存档保存在当前浏览器，可导出备份。</p>
     </aside>
     </div>
 
@@ -149,7 +139,7 @@
 
     <!-- ============ 结果 ============ -->
     <section id="results" hidden aria-live="polite">
-<div class="results-heading"><div><span class="section-kicker">03 / YOUR ITINERARY</span><h2>你的旅行，安排好了。</h2></div><span class="results-stamp"><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg>可以继续自由调整</span></div>
+<div class="results-heading"><div><h2>你的旅行路线</h2><p>路线可以继续调整，地图随行程更新。</p></div><a href="#plannerForm" class="btn-ghost">修改规划</a></div>
       <p id="sourceNotice" class="source-notice"></p>
       <div class="result-actions"><button type="button" class="btn-ghost" id="saveBtn">保存到本机</button><button type="button" class="btn-ghost" id="exportBtn">导出 JSON</button><button type="button" class="btn-ghost" id="shareBtn">复制输入链接</button><button type="button" class="btn-ghost" id="printBtn">打印 / 保存为 PDF</button></div>
       <div id="shareWrap" hidden><label for="shareInput">输入与偏好分享链接（不包含手动调整的攻略）</label><input id="shareInput" type="text" readonly></div>
@@ -165,9 +155,10 @@
           <div class="summary-item"><span class="k">两地直线距离</span><span class="v" id="sumDistance">—</span></div>
           <div class="summary-item"><span class="k">目的地</span><span class="v" id="sumDest">—</span></div>
         </div>
-        <p class="summary-note" id="sumNote"></p>
+        <details class="summary-details"><summary>目的地与出行建议</summary><p class="summary-note" id="sumNote"></p></details>
       </article>
 
+      <div class="route-map-workspace" id="routeMapWorkspace">
       <!-- 路线 -->
       <article class="card" id="routeCard">
         <h2 class="card-title"><svg class="icon" aria-hidden="true"><use href="#icon-calendar"></use></svg>旅游路线</h2>
@@ -185,6 +176,7 @@
         <div id="map"><p class="empty">点击“加载地图”查看路线，可按天切换。地图加载不会影响其他攻略内容。</p></div>
         <p id="mapTileNotice" class="map-hint" role="status" hidden></p>
       </article>
+      </div>
       <!-- 天气 -->
       <article class="card" id="weatherCard">
         <h2 class="card-title"><svg class="icon" aria-hidden="true"><use href="#icon-cloud"></use></svg>目的地天气</h2>
@@ -249,7 +241,9 @@
   <script src="js/stay-engine.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/storage.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/ui.js"></script>
+  <script src="js/app.js?v=0206025fbabf"></script>
+  <script src="js/ui.js?v=b9b8ee8a243f"></script>
+  <script src="vendor/gsap/gsap.min.js"></script>
+  <script src="js/motion.js"></script>
 </body>
 </html>

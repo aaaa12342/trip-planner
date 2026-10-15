@@ -24,11 +24,13 @@ async function run() {
   browser = await chromium.launch({headless:true, ...(process.env.PLAYWRIGHT_BROWSER_PATH
     ? {executablePath:process.env.PLAYWRIGHT_BROWSER_PATH} : process.platform==='win32'?{channel:'msedge'}:{})});
   async function pageFor(options={}) {
-    const context = await browser.newContext({viewport:{width:options.width||1280,height:900},timezoneId:'Asia/Shanghai',reducedMotion:'reduce'});
+    const context = await browser.newContext({viewport:{width:options.width||1280,height:900},timezoneId:'Asia/Shanghai',reducedMotion:options.motion?'no-preference':'reduce'});
     const page = await context.newPage();const errors=[];page.on('pageerror',error=>errors.push(error.message));
     const requests = { weather:0, route:0, geocode:0, overpass:0, attractions:0 };
     await page.route('**/*',async route=>{
       const target = route.request().url();
+      if(options.noUi && target.includes('/js/ui.js'))return route.abort();
+      if(options.noMotion && target.includes('/vendor/gsap/'))return route.abort();
       if(target.startsWith(url) || target.startsWith('file:')) { if(options.noMap && target.includes('/vendor/leaflet/'))return route.abort();return route.continue(); }
       if(target.includes('leaflet@1.9.4')) {
         if(options.noMap)return route.abort();
@@ -91,6 +93,91 @@ async function run() {
     const setup=await pageFor(options);try {await action(setup);assert.deepEqual(setup.errors,[]);checks++;console.log('PASS '+name);}
     finally{await setup.context.close();}
   }
+  await scenario('core summary remains correct without presentation helpers',{noUi:true},async({page})=>{
+    await fill(page,'杭州');
+    assert.equal(await page.locator('#draftRoute').textContent(),'北京 → 杭州');
+    assert.equal(await page.locator('#draftStops').textContent(),'5 个');
+    assert.equal(await page.locator('#recommendBtn').isVisible(),false);
+    assert.equal(await page.locator('#selectAllStops').isVisible(),false);
+    await page.locator('#recommendedWrap input').first().uncheck();
+    assert.equal(await page.locator('#draftStops').textContent(),'4 个');
+    await page.locator('#generateBtn').click();await done(page);
+    assert.equal(await page.locator('#draftStops').textContent(),'4 个');
+    await page.locator('#saveBtn').click();
+    await page.locator('#clearStops').click();
+    assert.equal(await page.locator('#draftStops').textContent(),'0 个');
+    assert.equal(await page.locator('#clearStops').isVisible(),false);
+    await page.locator('#selectAllStops').click();
+    assert.equal(await page.locator('#draftStops').textContent(),'5 个');
+    await page.locator('[data-save-action="restore"]').first().click();
+    assert.equal(await page.locator('#draftStops').textContent(),'4 个');
+    await page.locator('#resetBtn').click();
+    assert.equal(await page.locator('#draftStops').textContent(),'0 个');
+    assert.equal(await page.locator('#draftRoute').textContent(),'先选一个目的地');
+    await page.locator('#recommendBtn').click();
+    assert.equal(await page.locator('#destInput').evaluate(el=>el===document.activeElement),true);
+    assert.match(await page.locator('#pickerStatus').textContent(),/请先填写目的地/);
+  });
+  await scenario('pending recommendation action can cancel and retry instead of staying disabled',{nearby:true,delayRecommendations:true},async({page})=>{
+    await fill(page,'未收录目的地');
+    await page.locator('#recommendBtn').click();
+    assert.equal(await page.locator('#recommendBtn').textContent(),'取消查询');
+    assert.equal(await page.locator('#recommendBtn').isEnabled(),true);
+    await page.locator('#recommendBtn').click();
+    assert.match(await page.locator('#pickerStatus').textContent(),/已取消/);
+    await pause(550);
+    assert.equal(await page.locator('#recommendedWrap input').count(),0);
+    await page.locator('#recommendBtn').click();
+    await page.locator('#recommendedWrap input').waitFor();
+    assert.equal(await page.locator('#recommendBtn').isVisible(),false);
+    assert.equal(await page.locator('#draftStops').textContent(),'1 个');
+  });
+  await scenario('GSAP responds to selection and reduced motion clears running styles',{motion:true},async({page})=>{
+    assert.equal(await page.evaluate(()=>gsap.version),'3.15.0');
+    await fill(page);
+    const checkbox=page.locator('#recommendedWrap input').first();
+    await checkbox.focus();await checkbox.press('Space');
+    assert.ok(await page.evaluate(()=>gsap.isTweening(document.querySelector('.recommended-stop'))));
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await page.waitForFunction(()=>!gsap.isTweening(document.querySelector('.recommended-stop')) && !document.querySelector('.recommended-stop').style.transform);
+    assert.equal(await checkbox.evaluate(el=>el===document.activeElement),true);
+    await checkbox.press('Space');
+    assert.equal(await page.evaluate(()=>gsap.isTweening(document.querySelector('.recommended-stop'))),false);
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.locator('#generateBtn').click();await done(page);
+    await page.locator('.attr-head').first().click();
+    await page.waitForFunction(()=>gsap.isTweening(document.querySelector('.attr-body')));
+    await page.evaluate(()=>window.dispatchEvent(new Event('beforeprint')));
+    assert.ok(await page.locator('.summary-item').evaluateAll(els=>els.every(el=>!el.style.transform && !el.style.opacity)));
+    await page.emulateMedia({media:'print'});
+    assert.equal(await page.locator('#results').isVisible(),true);
+    assert.ok(await page.locator('.route-day').evaluateAll(els=>els.every(el=>!el.style.transform && !el.style.opacity)));
+  });
+  await scenario('GSAP missing keeps selecting generating and native details usable',{noMotion:true,motion:true},async({page})=>{
+    assert.equal(await page.evaluate(()=>typeof window.gsap),'undefined');
+    await fill(page);await page.locator('#advancedSettings > summary').click();
+    assert.equal(await page.locator('#paceInput').isVisible(),true);
+    await page.locator('#generateBtn').click();await done(page);
+    assert.ok(await page.locator('.journey-visit').count()>0);
+    assert.ok(await page.locator('.results-heading').evaluate(el=>getComputedStyle(el).opacity==='1'));
+  });
+  await scenario('workspace steps draft summary disclosures and desktop route map columns',{},async({page})=>{
+    assert.equal(await page.locator('#advancedSettings').getAttribute('open'),null);
+    if(process.env.QA_SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.QA_SCREENSHOT_DIR,'trip-workbench-empty.png')});
+    await fill(page,'上海','高铁','四天三夜');
+    await page.waitForFunction(()=>document.getElementById('draftStops').textContent==='5 个');
+    assert.equal(await page.locator('#draftRoute').textContent(),'北京 → 上海');
+    assert.equal(await page.locator('[data-step="3"]').getAttribute('aria-disabled'),'true');
+    await page.locator('#tripSettings > summary').click();assert.equal(await page.locator('#durationGroup').isVisible(),false);
+    await page.locator('[data-step="2"]').click();assert.equal(await page.locator('#durationGroup').isVisible(),true);
+    await page.locator('#advancedSettings > summary').click();await page.locator('#paceInput').selectOption('轻松');
+    assert.match(await page.locator('#preferencesSummary').textContent(),/轻松/);
+    await page.locator('.header-link').click();assert.equal(await page.locator('#savedPanel').isVisible(),true);
+    await page.locator('#generateBtn').click();await done(page,false);
+    await page.waitForFunction(()=>document.querySelector('[data-step="3"]').getAttribute('aria-disabled')==='false');
+    const boxes=await page.evaluate(()=>({route:document.getElementById('routeCard').getBoundingClientRect().toJSON(),map:document.getElementById('mapCard').getBoundingClientRect().toJSON()}));
+    assert.ok(boxes.map.x>boxes.route.right);assert.ok(Math.abs(boxes.route.y-boxes.map.y)<2);
+  });
   await scenario('unknown destination requires reviewing recommendations before generation',{nearby:true},async({page})=>{
     await fill(page,'未收录目的地');await page.locator('#generateBtn').click();
     await page.locator('#recommendedWrap input').waitFor();
@@ -253,11 +340,11 @@ async function run() {
     assert.match(await page.locator('#routeWrap').textContent(),/超过当日时间预算/);
     await page.locator('[data-action="include"][data-id="3"]').uncheck();
     assert.doesNotMatch(await page.locator('#routeWrap').textContent(),/上海迪士尼乐园/);
-    await page.locator('#paceInput').selectOption('轻松');assert.match(await page.locator('#plannerNotice').textContent(),/轻松/);
+    await page.locator('#advancedSettings > summary').click();await page.locator('#paceInput').selectOption('轻松');assert.match(await page.locator('#plannerNotice').textContent(),/轻松/);
   });
   await scenario('quiet preference changes area recommendation with explanation',{},async({page})=>{
     await fill(page);await page.locator('#generateBtn').click();await done(page,false);
-    await page.locator('#stayPreferenceInput').selectOption('安静休闲');
+    await page.locator('#advancedSettings > summary').click();await page.locator('#stayPreferenceInput').selectOption('安静休闲');
     assert.match(await page.locator('#stayWrap').textContent(),/清幽或安静/);
   });
   await scenario('save restore export import preserve manual ordering',{},async({page})=>{

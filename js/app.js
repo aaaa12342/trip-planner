@@ -8,14 +8,32 @@
   var escape = TripCore.escapeHTML;
   var requestId = 0, activeController = null, debounceTimer = null;
   var currentPlan = null, mapController = null, mapRequestId = 0;
-  var recommendations=null, recommendationController=null, recommendationId=0;
+  var recommendations=null, recommendationController=null, recommendationId=0, recommendationFailed=false;
+  function refreshDraft() {
+    var start=$('startInput').value.trim(),dest=$('destInput').value.trim();
+    var hasList=!!(recommendations && recommendations.name===dest && recommendations.attractions.length);
+    $('draftRoute').textContent=dest ? (start ? start+' → '+dest : dest) : '先选一个目的地';
+    $('draftStops').textContent=(hasList ? recommendations.selected.length : 0)+' 个';
+    $('draftDuration').textContent=selectedRadio('duration');
+    $('draftTravel').textContent=selectedRadio('travelMode');
+    $('draftPlay').textContent=selectedRadio('playMode');
+    $('settingsSummary').textContent=selectedRadio('duration')+' / '+selectedRadio('travelMode')+' / '+selectedRadio('playMode');
+    $('preferencesSummary').textContent=$('paceInput').value+' / '+$('stayPreferenceInput').value;
+    $('recommendBtn').hidden=hasList;
+    $('recommendBtn').disabled=false;
+    $('recommendBtn').textContent=recommendationController ? '取消查询' : recommendationFailed ? '重试景点查询' : '查看推荐景点';
+    $('recommendBtn').setAttribute('aria-busy',String(!!recommendationController));
+  }
   function cancelRecommendations() {
     recommendationId++;
     if(recommendationController) recommendationController.abort();
-    recommendationController=null;$('recommendBtn').disabled=false;
+    recommendationController=null;refreshDraft();
   }
   function updatePickerCount() {
     $('pickerCount').textContent='已选 '+recommendations.selected.length+' / '+recommendations.attractions.length+' 个景点';
+    $('selectAllStops').hidden=recommendations.selected.length===recommendations.attractions.length;
+    $('clearStops').hidden=!recommendations.selected.length;
+    refreshDraft();
   }
   function renderRecommendations() {
     var list=recommendations.attractions;
@@ -37,12 +55,12 @@
   }
   async function prepareRecommendations() {
     cancelRecommendations();var token=recommendationId,name=$('destInput').value.trim();
-    if(!name) { $('pickerStatus').textContent='请先填写目的地。';return false; }
+    if(!name) { $('pickerStatus').textContent='请先填写目的地，再查看推荐景点。';$('destInput').focus();return false; }
     showError(null);
     if(recommendations && recommendations.name===name && recommendations.attractions.length) return true;
     if(localRecommendations()) return true;
-    recommendationController=new AbortController();var signal=recommendationController.signal;
-    $('recommendBtn').disabled=true;$('pickerStatus').textContent='正在查询目的地与推荐景点…';
+    recommendationFailed=false;recommendationController=new AbortController();var signal=recommendationController.signal;
+    refreshDraft();$('pickerStatus').textContent='正在查询目的地与推荐景点…可点击“取消查询”停止。';
     try {
       var found=findDestination(name),data=found ? found.data : null;
       var geo=data ? {name:data.name,lat:data.lat,lng:data.lng} : await TripWeather.geocodeCity(name,signal,TripLocation.choose);
@@ -51,9 +69,9 @@
       recommendations={name:name,destData:data,geo:geo,attractions:attrs,selected:attrs.map(function(_,i){return i;})};
       renderRecommendations();return true;
     } catch(error) {
-      if(token===recommendationId && !signal.aborted) { $('pickerStatus').textContent='推荐景点查询失败：'+error.message+'。请重试或选择已收录的城市。';showError('景点查询失败：'+error.message); }
+      if(token===recommendationId && !signal.aborted) { recommendationFailed=true;$('pickerStatus').textContent='推荐景点查询失败：'+error.message+'。请重试或选择已收录的城市。';showError('景点查询失败：'+error.message); }
       return false;
-    } finally { if(token===recommendationId) { recommendationController=null;$('recommendBtn').disabled=false; } }
+    } finally { if(token===recommendationId) { recommendationController=null;refreshDraft(); } }
   }
   function cancelGeneration() {
     cancelMapRequest();
@@ -404,14 +422,13 @@
     if(!arrival.selected){wrap.innerHTML='<h3>推荐抵达站点</h3><p>'+escape(arrival.notice)+'</p>';return;}
     var selected=arrival.selected;
     var alternatives=arrival.candidates.filter(function(c){return c.index!==selected.index;}).slice(0,2);
-    wrap.innerHTML='<div class="arrival-heading"><div><span class="section-kicker">ARRIVAL / 抵达建议</span><h3><span class="arrival-caption">'+(arrival.manual?'已选抵达站点':'推荐抵达站点')+'</span><span id="arrivalName">'+escape(selected.station.name)+'</span></h3></div><span class="tag">'+escape(selected.station.kind)+'</span></div>'+
+    wrap.innerHTML='<div class="arrival-heading"><div><h3><span class="arrival-caption">'+(arrival.manual?'已选抵达站点':'推荐抵达站点')+'</span><span id="arrivalName">'+escape(selected.station.name)+'</span></h3></div><span class="tag">'+escape(selected.station.kind)+'</span></div>'+
       '<p>首个景点：第 '+(arrival.firstDay+1)+' 天 · '+escape(arrival.first.name)+'。直线约 <b>'+selected.firstKm.toFixed(1)+' km</b>；距已安排景点平均约 <b>'+selected.avgKm.toFixed(1)+' km</b>。</p>'+
-      '<p class="arrival-rule">排序依据：首个景点距离 70% ＋ 全部已安排景点平均距离 30%。'+(state.inputs.travelMode==='高铁'?'优先使用资料标注为高铁站的候选；其他铁路站作为待核实备选。':'')+'</p>'+
       '<label class="arrival-select-label" for="arrivalSelect">抵达站点</label><select id="arrivalSelect"><option value="auto"'+(!arrival.manual?' selected':'')+'>自动推荐：'+escape(arrival.candidates[0].station.name)+'</option>'+
       arrival.candidates.map(function(c){return '<option value="'+c.index+'"'+(arrival.manual && selected.index===c.index?' selected':'')+'>'+escape(c.station.name)+' · '+(c.unconfirmed?'高铁车次待核实':escape(c.station.kind))+' · 首站 '+c.firstKm.toFixed(1)+' km</option>';}).join('')+'</select>'+
       (selected.unconfirmed?'<p class="day-warning">此站尚未确认高铁停靠信息，请先核实车次；当前推荐只比较景点距离。</p>':'')+
       (alternatives.length?'<div class="arrival-alternatives">'+alternatives.map(function(c){return '<span>备选：'+escape(c.station.name)+' · 首站 '+c.firstKm.toFixed(1)+' km'+(c.unconfirmed?'（高铁车次待核实）':'')+'</span>';}).join('')+'</div>':'')+
-      '<p class="arrival-rule">这是抵达地候选，不代表从「'+escape(state.inputs.startName)+'」有对应班次。购票前请核实车次/航线、运营与实际交通。</p>'+
+      '<details class="arrival-explanation"><summary>推荐依据与购票提醒</summary><p class="arrival-rule">排序依据：首个景点距离 70% ＋ 全部已安排景点平均距离 30%。'+(state.inputs.travelMode==='高铁'?'优先使用资料标注为高铁站的候选；其他铁路站作为待核实备选。':'')+'</p><p class="arrival-rule">这是抵达地候选，不代表从「'+escape(state.inputs.startName)+'」有对应班次。购票前请核实车次/航线、运营与实际交通。</p></details>'+
       (arrival.firstDay>0?'<p class="arrival-reference">抵达衔接参考：'+escape(arrival.inbound.from)+' → '+escape(arrival.inbound.to)+' · '+escape(arrival.inbound.mode)+' · 约 '+arrival.inbound.minutes+' 分钟。首个景点安排在第 '+(arrival.firstDay+1)+' 天；若先入住，请按住宿位置调整。<a href="'+escape(arrival.inbound.url)+'" target="_blank" rel="noopener">查看交通</a></p>':'<p class="arrival-rule">抵达站点 → 首个景点的交通已合并进首日路线与时间预算，接送、安检和跨城交通另行预留。</p>');
   }
 
@@ -561,6 +578,7 @@
   }
 
   function renderCurrentPlan() {
+    refreshDraft();
     if (!currentPlan) return;
     cancelMapRequest(); $('shareWrap').hidden=true;
     var state = currentPlan, input = state.inputs, dur = DURATION_MAP[input.duration];
@@ -717,7 +735,14 @@
       ev.preventDefault();
       generate();
     });
-    $('recommendBtn').addEventListener('click',prepareRecommendations);
+    $('recommendBtn').addEventListener('click',function() {
+      if(recommendationController) {
+        cancelRecommendations();
+        $('pickerStatus').textContent='已取消景点查询，可重新查询或更换目的地。';
+      } else prepareRecommendations();
+    });
+    $('plannerForm').addEventListener('input',refreshDraft);
+    $('plannerForm').addEventListener('change',refreshDraft);
     $('recommendedWrap').addEventListener('change',function(event) {
       if(!recommendations || !event.target.matches('[data-stop-id]')) return;
       var id=Number(event.target.dataset.stopId);
@@ -747,6 +772,7 @@
       document.querySelectorAll('.seg.rec').forEach(function (s) { s.classList.remove('rec'); });
       $('results').hidden = true;
       showError(null);
+      recommendationFailed=false;refreshDraft();
     });
 
     $('swapBtn').addEventListener('click', function () {
@@ -771,8 +797,9 @@
     }
     ['startInput', 'destInput', 'dateInput'].forEach(function (id) { $(id).addEventListener('input', invalidateInputs); });
     function refreshDestination() {
-      cancelRecommendations();recommendations=null;$('recommendedWrap').innerHTML='';$('pickerTools').hidden=true;
+      cancelRecommendations();recommendationFailed=false;recommendations=null;$('recommendedWrap').innerHTML='';$('pickerTools').hidden=true;
       if(!localRecommendations()) $('pickerStatus').textContent=$('destInput').value.trim() ? '点击“查看推荐景点”，查询此目的地可选景点。' : '选择目的地后，这里会展示推荐景点。';
+      refreshDraft();
     }
     $('destInput').addEventListener('input',refreshDestination);
     ['paceInput','stayPreferenceInput'].forEach(function (id) { $(id).addEventListener('change',function () {
@@ -811,11 +838,12 @@
       button.setAttribute('aria-expanded', String(open));
     });
     renderSaved();
+    refreshDraft();
     try { var shared=TripStorage.readShare(global.location.hash); if (shared) { applyInputs(shared);refreshDestination();notify('已载入分享的输入和偏好，请确认日期与景点后生成路线。'); } }
     catch (error) { notify('分享链接格式无效，请重新填写行程。'); }
     $('saveBtn').addEventListener('click',function () {
       if (!currentPlan) return;
-      try { TripStorage.save(currentPlan); renderSaved(); notify('攻略已保存到当前浏览器，可从本机攻略列表恢复。'); }
+      try { TripStorage.save(currentPlan); renderSaved(); $('savedDetails').open=true;notify('攻略已保存到当前浏览器，可从本机攻略列表恢复。'); }
       catch (error) { notify('保存失败：'+error.message+' 可导出 JSON 保留攻略。'); }
     });
     $('exportBtn').addEventListener('click',function () {

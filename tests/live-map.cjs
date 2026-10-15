@@ -19,7 +19,8 @@ let browser;
   await page.locator('[data-stop-id="0"]').check();await page.locator('[data-stop-id="1"]').check();
   await page.locator('#generateBtn').click();
   await page.waitForFunction(()=>window.__tripMap && ['ready','partial','failed'].includes(window.__tripMap._tripBasemapState),{},{timeout:45000});
-  await page.evaluate(()=>document.getElementById('mapCard').scrollIntoView({block:'start'}));
+  await page.evaluate(()=>document.getElementById('routeCard').scrollIntoView({block:'start'}));
+  await page.waitForFunction(()=>Array.from(document.querySelectorAll('#map .leaflet-tile')).filter(t=>t._tripValid).every(t=>Number(getComputedStyle(t).opacity)===1));
   const result=await page.evaluate(()=>({
     state:window.__tripMap._tripBasemapState,status:document.getElementById('mapStatus').textContent,
     markers:document.querySelectorAll('#map .num-marker').length,

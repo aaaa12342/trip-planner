@@ -1,0 +1,4 @@
+# Preserve upstream distribution bytes and their original whitespace.
+vendor/gsap/gsap.min.js -text whitespace=-blank-at-eol,-blank-at-eof
+vendor/gsap/UPSTREAM-README.md -text whitespace=-blank-at-eol,-blank-at-eof
+vendor/gsap/package.json -text
