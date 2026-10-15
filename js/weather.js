@@ -47,27 +47,24 @@
   }
 
   /** Open-Meteo 地理编码 */
-  async function geocodeCity(name) {
+  async function geocodeCity(name, signal, choose) {
     var url = GEO_URL + '?name=' + encodeURIComponent(name) + '&count=5&language=zh&format=json';
-    var res = await fetch(url);
-    if (!res.ok) throw new Error('地理编码请求失败 (' + res.status + ')');
-    var json = await res.json();
-    var results = json.results || [];
-    if (!results.length) throw new Error('未找到「' + name + '」的地理位置，请检查输入或换个写法（如“杭州”）。');
-    var best = results[0];
-    // 优先选择人口更多 / 更精确的中文名称结果
-    for (var i = 0; i < results.length; i++) {
-      if (results[i].country_code === 'CN' && (results[i].population || 0) > (best.population || 0)) {
-        best = results[i];
-      }
-    }
-    return {
-      name: best.name || name,
-      admin1: best.admin1 || '',
-      country: best.country || '',
-      lat: best.latitude,
-      lng: best.longitude
-    };
+    var json = await TripCore.requestJSON(url, { signal: signal, ttl: 86400000 });
+    var seen = new Set();
+    var candidates = (Array.isArray(json.results) ? json.results : []).map(function (result) {
+      return { name: result.name || name, admin1: result.admin1 || '', country: result.country || '', lat: result.latitude, lng: result.longitude };
+    }).filter(function (result) {
+      if (!TripCore.validPoint(result)) return false;
+      var key = result.lat + ',' + result.lng;
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+    if (!candidates.length) throw new Error('未找到「' + name + '」的地理位置，请检查输入或换个写法。');
+    if (candidates.length === 1) return candidates[0];
+    if (!choose) throw new Error('「' + name + '」存在多个地点，请补充省份或选择具体地点。');
+    var selected = await choose(name, candidates, signal);
+    if (candidates.indexOf(selected) < 0) throw new Error('地点选择无效');
+    return selected;
   }
 
   /**
@@ -77,12 +74,12 @@
    * @param {number} days 预报天数
    * @param {string} [startDate] 出发日期（YYYY-MM-DD），用于按行程返回预报
    */
-  async function fetchWeather(lat, lng, days, startDate) {
+  async function fetchWeather(lat, lng, days, startDate, signal) {
     var params = new URLSearchParams({
       latitude: lat,
       longitude: lng,
       current: 'temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m',
-      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max',
+      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,wind_speed_10m_max',
       timezone: 'auto'
     });
     if (startDate) {
@@ -95,9 +92,33 @@
       params.set('forecast_days', Math.min(Math.max(days || 3, 1), 7));
     }
     var url = FORECAST_URL + '?' + params.toString();
-    var res = await fetch(url);
-    if (!res.ok) throw new Error('天气请求失败 (' + res.status + ')');
-    return await res.json();
+    var weather = await TripCore.requestJSON(url, { signal: signal, ttl: 600000, validate: function (data) {
+      var daily = data && data.daily;
+      if (!daily || !Array.isArray(daily.time) || !daily.time.length || !daily.time.every(function (date) { return /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date)); })) return false;
+      return ['temperature_2m_min', 'temperature_2m_max', 'weather_code', 'precipitation_probability_max', 'wind_speed_10m_max'].every(function (key) {
+        return Array.isArray(daily[key]) && daily[key].length === daily.time.length && daily[key].every(function (value) { return value === null || Number.isFinite(value); });
+      });
+    } });
+    if (!weather.daily || !weather.daily.time || !weather.daily.time.length) throw new Error('天气预报暂不可用');
+    return weather;
+  }
+
+  function tripConditions(weather) {
+    var daily = weather.daily || {};
+    var lows = (daily.temperature_2m_min || []).filter(Number.isFinite);
+    var highs = (daily.temperature_2m_max || []).filter(Number.isFinite);
+    var codes = daily.weather_code || [];
+    var rainCodes = [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99];
+    var snowCodes = [71, 73, 75, 77, 85, 86];
+    return {
+      known: lows.length > 0 && highs.length > 0,
+      temp: lows.length ? Math.min.apply(null, lows) : null,
+      high: highs.length ? Math.max.apply(null, highs) : null,
+      rainy: codes.some(function (code) { return rainCodes.indexOf(code) >= 0; }) ||
+        (daily.precipitation_probability_max || []).some(function (p) { return p >= 50; }),
+      snowy: codes.some(function (code) { return snowCodes.indexOf(code) >= 0; }),
+      wind: Math.max.apply(null, [0].concat((daily.wind_speed_10m_max || []).filter(Number.isFinite)))
+    };
   }
 
   function formatDate(iso) {
@@ -108,15 +129,16 @@
 
   /* ---------- 穿搭推荐规则 ---------- */
   function recommendClothing(weather, destType, tripDays) {
-    var cur = weather.current || {};
-    var code = cur.weather_code != null ? cur.weather_code : 0;
-    var temp = cur.temperature_2m != null ? cur.temperature_2m : 20;
-    var wind = cur.wind_speed_10m || 0;
-    var info = wmoInfo(code);
-    var rainy = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].indexOf(code) >= 0;
-    var snowy = [71, 73, 75, 77, 85, 86].indexOf(code) >= 0;
+    var conditions = tripConditions(weather);
+    if (!conditions.known) return {
+      upper: '天气暂不可用，出发前根据预报选择衣物', lower: '舒适长裤',
+      accessory: '舒适鞋、备用外套', tips: ['暂不提供温度相关建议，请出发前复查目的地天气。']
+    };
+    var temp = conditions.temp, wind = conditions.wind;
+    var rainy = conditions.rainy, snowy = conditions.snowy;
+    var code = (weather.daily.weather_code || [])[0];
 
-    var upper, lower, accessory = [], tip = [];
+    var upper, lower, accessory = [], tip = ['按旅行期间最低 ' + temp + '°C、最高 ' + conditions.high + '°C 准备分层衣物。'];
 
     if (temp >= 28) {
       upper = '短袖 T 恤、轻薄衬衫、连衣裙';
@@ -159,6 +181,8 @@
     }
     if (destType === 'mountain' && code === 0 && temp > 10) tip.push('高原/山地紫外线强，注意防晒。');
 
+    if (conditions.high - temp >= 10) tip.push('行程期间温差较大，建议分层穿搭，白天可适当减衣。');
+
     // 时长
     var change = Math.max(2, Math.min(tripDays + 1, 6));
     tip.push('按 ' + tripDays + ' 天行程建议携带 ' + change + ' 套换洗衣物（含睡衣）。');
@@ -174,24 +198,22 @@
   function recommendItems(opts) {
     // opts: { weather, destType, travelMode, playMode, tripDays }
     var weather = opts.weather || {};
-    var cur = weather.current || {};
-    var code = cur.weather_code != null ? cur.weather_code : 0;
-    var temp = cur.temperature_2m != null ? cur.temperature_2m : 20;
-    var rainy = [51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].indexOf(code) >= 0;
-    var snowy = [71, 73, 75, 77, 85, 86].indexOf(code) >= 0;
+    var conditions = tripConditions(weather);
+    var temp = conditions.temp;
+    var rainy = conditions.rainy, snowy = conditions.snowy;
 
     var cats = [
       { name: '🪪 证件与票务', items: ['身份证 / 护照', '手机及充电宝', '充电线 / 插头'] },
       { name: '🧴 洗漱与护理', items: ['牙刷 / 牙膏 / 毛巾', '洗面奶 / 护肤品', '防晒霜'] },
       { name: '💊 药品', items: ['常用药（感冒 / 肠胃 / 晕车）', '创可贴', '个人处方药'] },
-      { name: '👕 衣物', items: ['换洗衣物 ' + (Math.max(2, opts.tripDays) + 1) + ' 套', '睡衣'] }
+      { name: '👕 衣物', items: ['换洗衣物 ' + Math.max(2, Math.min(opts.tripDays + 1, 6)) + ' 套', '睡衣'] }
     ];
 
     // 天气相关
     if (rainy) cats[1].items.push('雨伞 / 雨衣');
-    if (snowy || temp <= 5) cats[1].items.push('润唇膏', '护手霜', '暖宝宝');
-    if (temp >= 18) cats[1].items.push('驱蚊液 / 驱蚊手环', '止痒膏');
-    if (temp >= 28 || opts.destType === 'beach') cats[1].items.push('遮阳伞');
+    if (snowy || (conditions.known && temp <= 5)) cats[1].items.push('润唇膏', '护手霜', '暖宝宝');
+    if (conditions.high >= 18) cats[1].items.push('驱蚊液 / 驱蚊手环', '止痒膏');
+    if (conditions.high >= 28 || opts.destType === 'beach') cats[1].items.push('遮阳伞');
 
     // 出行方式相关
     var travelCats = {
@@ -240,6 +262,7 @@
   }
 
   global.TripWeather = {
+    tripConditions: tripConditions,
     geocodeCity: geocodeCity,
     fetchWeather: fetchWeather,
     wmoInfo: wmoInfo,

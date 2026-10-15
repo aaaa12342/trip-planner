@@ -1,0 +1,13 @@
+{
+  "name": "trip-planner",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/core.test.cjs tests/catalog.test.cjs tests/features.test.cjs tests/arrival.test.cjs",
+    "test:browser": "node tests/browser.cjs",
+    "check": "node scripts/check.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

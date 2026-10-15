@@ -215,7 +215,7 @@
       overview: c[6],
       foods: c[7].map(function (f) { return { name: f[0], desc: f[1] }; }),
       tips: c[8],
-      attractions: null   // 运行时由 OpenStreetMap 检索生成
+      attractions: []     // city-attractions.js 补充精选景点，其余城市联网检索
     };
   });
 

@@ -809,6 +809,8 @@
       return makeScenicDestination(scKey, global.SCENIC[scKey]);
     }
 
+    // Scenic aliases may intentionally resolve to a city destination.
+    key = scKey;
     // 2) 城市（含别名）
     if (ALIASES[key]) key = ALIASES[key];
     var all = lookupAll();
